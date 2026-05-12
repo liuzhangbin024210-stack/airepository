@@ -1,0 +1,79 @@
+---
+description: 代码注释必须使用中文，并采用 JSDoc 格式
+alwaysApply: true
+---
+
+# 代码注释规范
+
+## 核心要求
+
+1. **所有注释一律使用中文**：包括行内注释、块注释、函数/类/模块的文档注释。
+2. **JS / TS / Vue 文件使用 JSDoc 格式**为函数、类、方法、复杂类型撰写文档注释。
+3. **其他语言**（Python、HTML 等）使用其等价的标准文档注释格式（如 Python 用中文 docstring），同样保持中文。
+4. 只在表达**意图、约束、权衡**等非显而易见的信息时写注释，不要写"自言自语"式的复述代码注释。
+
+## JSDoc 示例（JS / TS / Vue）
+
+```javascript
+// ❌ 不推荐：英文注释、缺少类型/返回值说明
+// calculate total price
+function calcTotal(items, rate) {
+  return items.reduce((s, i) => s + i.price, 0) * rate;
+}
+
+// ✅ 推荐：中文 JSDoc，标注参数、返回值、可能的异常
+/**
+ * 计算购物车的最终金额（含税）。
+ *
+ * @param {{ price: number }[]} items - 商品列表，每项需包含价格字段。
+ * @param {number} rate - 税率，例如 0.13 表示 13%。
+ * @returns {number} 含税后的总金额（单位：元）。
+ * @throws {TypeError} 当 items 不是数组时抛出。
+ */
+function calcTotal(items, rate) {
+  return items.reduce((sum, item) => sum + item.price, 0) * (1 + rate);
+}
+```
+
+## Vue 单文件组件
+
+在 `<script>` 块内对组件、props、emits、复杂方法使用 JSDoc：
+
+```javascript
+/**
+ * 双色球号码展示组件。
+ *
+ * @typedef {Object} Props
+ * @property {number[]} reds - 6 个红球号码（1-33）。
+ * @property {number}   blue - 1 个蓝球号码（1-16）。
+ */
+```
+
+## Python 等价格式
+
+```python
+def calc_total(items: list[dict], rate: float) -> float:
+    """计算购物车的最终金额（含税）。
+
+    Args:
+        items: 商品列表，每项需包含 ``price`` 字段。
+        rate: 税率，例如 ``0.13`` 表示 13%。
+
+    Returns:
+        含税后的总金额（单位：元）。
+
+    Raises:
+        TypeError: 当 ``items`` 不是列表时抛出。
+    """
+    return sum(item["price"] for item in items) * (1 + rate)
+```
+
+## 反例：避免无意义注释
+
+```javascript
+// ❌ 仅复述代码，无信息量
+i++; // 自增 i
+
+// ✅ 解释"为什么"，而非"是什么"
+i++; // 跳过表头行，从数据区开始读取
+```
