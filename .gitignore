@@ -14,3 +14,33 @@ app/build
 .kotlin/
 __pycache__/
 *.pyc
+
+# Python
+.venv/
+venv/
+*.py[cod]
+*$py.class
+.Python
+*.egg-info/
+.eggs/
+dist/
+
+# Node / Vue
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Vite
+**/dist/
+.vite/
+
+# OS / IDE
+Thumbs.db
+*.swp
+*.swo
+
+# Env & secrets
+.env
+.env.*
+!.env.example
