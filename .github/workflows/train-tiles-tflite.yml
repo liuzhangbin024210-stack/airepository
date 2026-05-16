@@ -1,0 +1,36 @@
+# 在 Linux 上安装 TensorFlow CPU 并训练导出 tiles-v1.tflite，避免本机 Windows pip 下载过慢/失败。
+# 触发：手动 workflow_dispatch，或改动牌面训练相关脚本时。
+name: train-tiles-tflite
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "tools/ml/train_tile_classifier_v1.py"
+      - "tools/ml/tile_schema_v1.py"
+      - ".github/workflows/train-tiles-tflite.yml"
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install "tensorflow-cpu>=2.14,<2.19" "numpy>=1.24"
+
+      - name: Train and export TFLite
+        run: |
+          python tools/ml/train_tile_classifier_v1.py --epochs 8 --n-per-class 200
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tiles-v1-tflite
+          path: app/src/main/assets/ml/xuezhan_mahjong_default/tiles-v1.tflite

@@ -1,0 +1,9 @@
+{
+  "modelVersion": 0,
+  "appId": "xuezhan_mahjong_default",
+  "rulesHash": "c87de682f376157574fe79d7380e736d744e7e92e06f41e840284c2af56bae6b",
+  "featureSchemaVersion": 1,
+  "policyFile": "policy-v1.tflite",
+  "tileClassifierFile": "tiles-v1.tflite",
+  "note": "rulesHash 与 RulesConfig.sha256FingerprintHex() 一致；策略输出支持 27（仅听牌）或 81（听牌+RonAny+点杠 Concat）；无 policy 文件时回退 MC；牌面见 tileClassifierFile；训练见 tools/ml/README.md"
+}
