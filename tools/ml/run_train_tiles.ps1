@@ -16,6 +16,9 @@ if (-not (Test-Path $Venv)) {
   python -m venv $Venv
 }
 & (Join-Path $Venv "Scripts\python.exe") -m pip install --upgrade pip
-& (Join-Path $Venv "Scripts\pip.exe") install "tensorflow-cpu>=2.14,<2.19" "numpy>=1.24"
+if ($LASTEXITCODE -ne 0) { throw "pip upgrade failed (exit $LASTEXITCODE)" }
+& (Join-Path $Venv "Scripts\pip.exe") install --retries 15 --timeout 120 "tensorflow-cpu>=2.14,<2.19" "numpy>=1.24"
+if ($LASTEXITCODE -ne 0) { throw "pip install tensorflow failed (exit $LASTEXITCODE). 可改用 GitHub Actions：docs/CI-tiles-v1-github.md" }
 & (Join-Path $Venv "Scripts\python.exe") tools/ml/train_tile_classifier_v1.py --epochs 8 --n-per-class 200
+if ($LASTEXITCODE -ne 0) { throw "train_tile_classifier_v1.py failed (exit $LASTEXITCODE)" }
 Write-Host "完成。输出: app/src/main/assets/ml/xuezhan_mahjong_default/tiles-v1.tflite" -ForegroundColor Green

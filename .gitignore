@@ -11,6 +11,7 @@
 *.aab
 app/build
 .venv-tiles/
+.venv-policy/
 .kotlin/
 __pycache__/
 *.pyc

@@ -7,16 +7,21 @@ v1 策略蒸馏脚手架：多输出小网络 + 导出 **单张量 81 维** floa
 当前使用 **合成数据** 演示训练闭环；接入真实 MC 教师时，将 `synthetic_dataset`
 替换为从特征 NPZ / 数据库读取的 `(X, Y_hu, Y_ron, Y_kong)` 即可。
 
-示例：
+示例（在项目根目录）::
+
   pip install -r tools/ml/requirements.txt
-  python tools/ml/train_policy_v1.py --out build/policy-v1.tflite --epochs 3
-再将生成的 tflite 与更新后的 `model_manifest.json` 拷入 `app/src/main/assets/ml/xuezhan_mahjong_default/`。
+  python tools/ml/train_policy_v1.py --epochs 3
+
+默认写出到 ``app/src/main/assets/ml/xuezhan_mahjong_default/policy-v1.tflite``；
+也可用 ``--out build/policy-v1.tflite`` 指定路径。
+
+``model_manifest.json`` 中 ``policyFile``、``rulesHash``、``featureSchemaVersion`` 须与工程一致
+（默认 manifest 已对齐默认 ``RulesConfig`` 指纹）。
 """
 
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 from pathlib import Path
 
@@ -33,6 +38,11 @@ from policy_schema import (
     HEAD_KONG,
     HEAD_RON,
     OUTPUT_FULL,
+)
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_DEFAULT_OUT = (
+    _REPO_ROOT / "app/src/main/assets/ml/xuezhan_mahjong_default/policy-v1.tflite"
 )
 
 
@@ -67,7 +77,12 @@ def synthetic_dataset(n: int, seed: int = 0):
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="训练并导出 v1 策略 TFLite（81 维单输出）")
-    parser.add_argument("--out", type=str, default="policy-v1.tflite", help="输出 .tflite 路径")
+    parser.add_argument(
+        "--out",
+        type=str,
+        default=str(_DEFAULT_OUT),
+        help="输出 .tflite 路径（默认 assets 与 manifest policyFile 一致）",
+    )
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--samples", type=int, default=512, help="合成样本数")
     parser.add_argument("--seed", type=int, default=0)
@@ -102,20 +117,18 @@ def main() -> None:
     export_model.summary()
 
     converter = tf.lite.TFLiteConverter.from_keras_model(export_model)
-    converter.optimizations = [tf.lite.Optimize.DEFAULT]
+    # 与牌面导出一致：不启用整型量化，避免与端侧 float 缓冲 / Interpreter 期望不一致
+    converter.optimizations = []
     tflite_bytes = converter.convert()
 
-    out_path = os.path.abspath(args.out)
-    parent = os.path.dirname(out_path)
-    if parent:
-        os.makedirs(parent, exist_ok=True)
-    with open(out_path, "wb") as f:
-        f.write(tflite_bytes)
+    out_path = Path(args.out).resolve()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_bytes(tflite_bytes)
 
     print(f"已写入 TFLite（{len(tflite_bytes)} 字节）: {out_path}")
     print(
-        "请将文件拷入 app/src/main/assets/ml/xuezhan_mahjong_default/，"
-        "并确认 model_manifest.json 中 policyFile、rulesHash 与工程一致。"
+        "若未写入默认 assets 路径，请将 tflite 拷到 app/src/main/assets/ml/xuezhan_mahjong_default/ "
+        "并与 model_manifest.json 中 policyFile、rulesHash 一致。"
     )
 
 

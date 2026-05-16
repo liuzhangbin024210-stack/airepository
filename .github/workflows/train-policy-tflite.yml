@@ -1,0 +1,36 @@
+# Linux 上训练并导出 policy-v1.tflite（与 TflitePolicyStudentInterpreter 契约一致）。
+# 触发：手动 workflow_dispatch，或改动策略训练相关脚本时。
+name: train-policy-tflite
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "tools/ml/train_policy_v1.py"
+      - "tools/ml/policy_schema.py"
+      - ".github/workflows/train-policy-tflite.yml"
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install "tensorflow-cpu>=2.14,<2.19" "numpy>=1.24"
+
+      - name: Train and export TFLite
+        run: |
+          python tools/ml/train_policy_v1.py --epochs 3 --samples 512
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: policy-v1-tflite
+          path: app/src/main/assets/ml/xuezhan_mahjong_default/policy-v1.tflite

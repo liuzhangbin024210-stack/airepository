@@ -8,9 +8,10 @@ MC 教师数据批次命名与落盘约定：**[datasets/README.md](datasets/REA
 2. 特征与输出维度常量与 Kotlin **必须一致**：见 `tools/ml/policy_schema.py`（与 `PolicyFeatureV1` 同步维护）。
 3. 一键合成数据训练 + 导出单张量 81 维 TFLite：
    ```bash
-   python tools/ml/train_policy_v1.py --out build/policy-v1.tflite --epochs 3
+   python tools/ml/train_policy_v1.py --epochs 3
    ```
-   将生成的 `policy-v1.tflite` 拷入 `app/src/main/assets/ml/xuezhan_mahjong_default/`。脚本内为 **多输出训练**（hu softmax + ron/kong sigmoid），导出时 **Concat** 为与端侧一致的 **81 维单输出**。
+   默认写出到 `app/src/main/assets/ml/xuezhan_mahjong_default/policy-v1.tflite`（可用 `--out` 改路径）。脚本为 **多输出训练**（hu softmax + ron/kong sigmoid），导出时 **Concat** 为与端侧一致的 **81 维单输出**（float32，无整型量化）。
+4. **GitHub Actions**（本机 pip 慢/失败时）：工作流 **`train-policy-tflite`**（`.github/workflows/train-policy-tflite.yml`）在 Linux 上训练并上传制品 **`policy-v1-tflite`**。步骤与牌面类似，见 **[`docs/CI-policy-v1-github.md`](../docs/CI-policy-v1-github.md)**。Windows 可用 **`tools/ml/run_train_policy.ps1`**（创建 `.venv-policy`）。
 
 ## 策略张量契约（与 `TflitePolicyStudentInterpreter` 一致）
 

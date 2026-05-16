@@ -19,7 +19,7 @@
 - **设置页**：画面区域标定（四家舍牌区、本家手牌区等）；可选自动识别牌墙剩张。
 - **视觉管线**：四河差分 → 牌面分类（manifest 可选 TFLite）→ 置信度门禁写舍牌；牌墙剩张 OCR 可与推算对账。
 - **规则**：`SichuanRulesEngine`（定缺、无吃、胡/听、一炮多响 `ronSeats`、`RulesConfig.allowMultiRon` 默认 `true`）。
-- **蒸馏 / 策略 TFLite**：`PolicyFeatureV1`（81 维）+ manifest `rulesHash`；模型输出 **27** 时仅听牌学生，**81** 时额外含打出 RonAny/点杠；无 `policy-v1.tflite` 或校验失败则全走 MC；见 `tools/ml/README.md`（含 `train_policy_v1.py` 脚手架）。
+- **蒸馏 / 策略 TFLite**：`PolicyFeatureV1`（81 维）+ manifest `rulesHash`；模型输出 **27** 时仅听牌学生，**81** 时额外含打出 RonAny/点杠；无 `policy-v1.tflite` 或校验失败则全走 MC；训练见 `tools/ml/README.md`（`train_policy_v1.py`）。**GitHub Actions** 工作流 **`train-policy-tflite`** 产出制品 **`policy-v1-tflite`**，步骤见 **`docs/CI-policy-v1-github.md`**。
 - **牌面分类 TFLite**：默认文件名 `tiles-v1.tflite`，与 `model_manifest.json` 中 `tileClassifierFile` 一致。本地训练见 `tools/ml/README.md` 或 Windows 脚本 `tools/ml/run_train_tiles.ps1`。**推荐用 GitHub Actions 下载制品**：步骤见 **`docs/CI-tiles-v1-github.md`**（Actions → **train-tiles-tflite** → 下载 **tiles-v1-tflite** → 解压后放入 `app/src/main/assets/ml/xuezhan_mahjong_default/`）。
 
 ## 规则子集（v1，与 `RulesConfig` 一致）
@@ -34,6 +34,7 @@
 
 - 修订计划：`.cursor/plans/四川麻将记牌器计划修订_541f9a42.plan.md`
 - **GitHub 获取牌面模型**：`docs/CI-tiles-v1-github.md`（Actions 下载 `tiles-v1.tflite`）
+- **GitHub 获取策略模型**：`docs/CI-policy-v1-github.md`（Actions 下载 `policy-v1.tflite`）
 - 画面字段映射：`docs/画面字段-GameState-映射表.md`
 - 截图帧清单：`picture/README.md`
 - 验收摘要：`docs/ACCEPTANCE-IMPLEMENTATION.md`
