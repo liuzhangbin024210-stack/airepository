@@ -1,9 +1,20 @@
 # 在 Linux 上安装 TensorFlow CPU 并训练导出 tiles-v1.tflite，避免本机 Windows pip 下载过慢/失败。
-# 触发：手动 workflow_dispatch，或改动牌面训练相关脚本时。
+# 触发：手动 workflow_dispatch（可指定数据目录与 epoch），或改动牌面训练相关脚本时。
 name: train-tiles-tflite
 
 on:
   workflow_dispatch:
+    inputs:
+      data_dir:
+        description: "牌面数据集根目录（须含 00..26 或 0..26 子目录）；留空则自动探测 datasets/tile_crops_v1"
+        required: false
+        default: "datasets/tile_crops_v1"
+        type: string
+      epochs:
+        description: "训练轮数（真实数据建议 20~50；无数据时走合成占位）"
+        required: false
+        default: "30"
+        type: string
   push:
     paths:
       - "tools/ml/train_tile_classifier_v1.py"
@@ -26,8 +37,38 @@ jobs:
           pip install "tensorflow-cpu>=2.14,<2.19" "numpy>=1.24"
 
       - name: Train and export TFLite
+        shell: bash
         run: |
-          python tools/ml/train_tile_classifier_v1.py --epochs 8 --n-per-class 200
+          set -euo pipefail
+          # push 时无 inputs 上下文，固定使用仓库内标准数据集路径
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            DATA_DIR="${{ inputs.data_dir }}"
+            EPOCHS="${{ inputs.epochs }}"
+          else
+            DATA_DIR="datasets/tile_crops_v1"
+            EPOCHS="30"
+          fi
+          if [[ -z "${DATA_DIR// }" ]]; then DATA_DIR="datasets/tile_crops_v1"; fi
+          if [[ -z "${EPOCHS// }" ]]; then EPOCHS="30"; fi
+
+          has_real=0
+          if [[ -d "${DATA_DIR}/00" ]] || [[ -d "${DATA_DIR}/0" ]]; then has_real=1; fi
+
+          # 非手动触发：短 epoch 冒烟，避免每次改脚本都长时间占用 runner
+          if [[ "${{ github.event_name }}" != "workflow_dispatch" ]]; then
+            if [[ "${has_real}" -eq 1 ]]; then EPOCHS=12; else EPOCHS=8; fi
+          fi
+
+          if [[ "${has_real}" -eq 1 ]]; then
+            echo "使用真实牌面数据: ${DATA_DIR}，epochs=${EPOCHS}"
+            python tools/ml/train_tile_classifier_v1.py \
+              --data-dir "${DATA_DIR}" \
+              --epochs "${EPOCHS}" \
+              --batch-size 64
+          else
+            echo "未找到 ${DATA_DIR} 下的 00/0 子目录，使用合成占位数据（epochs=8）"
+            python tools/ml/train_tile_classifier_v1.py --epochs 8 --n-per-class 200
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

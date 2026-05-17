@@ -18,6 +18,9 @@ object PlayerStrings {
     const val EXCHANGE_THREE_BLOCK = "换三张阶段请结束后再分析。"
     const val NO_FRAME = "尚未捕捉到画面，请稍候再试。"
     const val HAND_NOT_13 = "尚未识别齐本家 13 张手牌，请对准手牌区后重试。"
+    /** 相机 HUD 提示：手牌裁切与画面橙框均以分析帧为准；请在设置中微调「本家手牌区」。 */
+    const val HAND_RECOGNITION_HINT =
+        "手牌识别以「设置」中的「本家手牌区」为准；橙虚线为手牌区，细红实线为四家舍牌区（与裁切共用同一坐标系）。"
 
     const val VISION_RIVER_PAUSED =
         "舍牌自动记录已暂停：牌墙张数对不上。请到设置检查画面区域，或重新对准牌桌。"

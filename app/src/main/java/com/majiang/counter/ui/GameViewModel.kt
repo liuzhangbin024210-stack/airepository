@@ -90,6 +90,13 @@ class GameViewModel @Inject constructor(
     private val _analysisMessage = MutableStateFlow<String?>(null)
     val analysisMessage: StateFlow<String?> = _analysisMessage.asStateFlow()
 
+    /**
+     * 最近一帧 [ImageAnalysis] 转 Bitmap 后的宽高（与 ROI 归一化坐标同一空间），
+     * 供对局页将四河红框按「中心裁切铺满」映射到预览画布，与 [TableTracker] / 手牌识别裁切一致。
+     */
+    private val _analysisFrameSize = MutableStateFlow<Pair<Int, Int>?>(null)
+    val analysisFrameSize: StateFlow<Pair<Int, Int>?> = _analysisFrameSize.asStateFlow()
+
     private val lastFrameLock = Any()
 
     @Volatile
@@ -201,6 +208,7 @@ class GameViewModel @Inject constructor(
                 lastFrameBitmap?.recycle()
                 lastFrameBitmap = null
             }
+            _analysisFrameSize.value = null
         }
         _cameraActive.value = active
     }
@@ -242,7 +250,7 @@ class GameViewModel @Inject constructor(
                 val recognized = handBottomRecognizer.recognize(
                     frame,
                     handRect,
-                    appProfile.visionMinClassifierConfidence,
+                    appProfile.handClassifierMinConfidence,
                 )
                 recognized.fold(
                     onFailure = { e ->
@@ -281,6 +289,7 @@ class GameViewModel @Inject constructor(
             lastFrameBitmap?.recycle()
             lastFrameBitmap = copy
         }
+        _analysisFrameSize.value = copy.width to copy.height
     }
 
     suspend fun processCameraFrame(image: ImageProxy) {

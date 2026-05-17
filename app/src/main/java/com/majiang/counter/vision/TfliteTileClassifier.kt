@@ -21,7 +21,7 @@ import kotlin.math.exp
  * 牌面小图分类：从 assets 加载可选牌面 TFLite；无模型或推理失败时返回 **低置信度** 占位结果，
  * 与修订计划中「占位识别不通过门禁」一致，避免误写 [com.majiang.counter.domain.GameState]。
  *
- * **输入管线**：当前 [RiverDiffTableTracker] 传入 **JPEG 字节**；此处解码后按模型张量形状缩放并归一化到 \[0,1\]。
+ * **输入管线**：传入 **PNG 或 JPEG 字节**（如手牌条为 PNG 以减轻压缩伪影）；此处解码后按模型张量形状缩放并归一化到 \[0,1\]。
  *
  * **模型契约**（训练脚本须与 `Tile.allTypes()` 的 27 门牌顺序一致）：
  * - 输入：float32，`[1,H,W,3]`（NHWC）或 `[1,3,H,W]`（NCHW），由张量维自动判断。

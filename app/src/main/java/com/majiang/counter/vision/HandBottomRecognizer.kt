@@ -5,6 +5,7 @@ import com.majiang.counter.domain.Tile
 import com.majiang.counter.profile.NormRect
 import java.io.ByteArrayOutputStream
 import javax.inject.Inject
+import kotlin.math.max
 
 /**
  * 本家手牌横条识别：裁切 [handRect] 后按 13/14 等分竖格，逐张调用 [TileClassifier]。
@@ -86,7 +87,7 @@ class HandBottomRecognizer @Inject constructor(
         }
         val hand = best
             ?: return Result.failure(
-                IllegalStateException("尚未识别齐本家手牌，请对准手牌区后重试"),
+                IllegalStateException(HAND_INCOMPLETE_MSG),
             )
         return Result.success(hand)
     }
@@ -102,7 +103,7 @@ class HandBottomRecognizer @Inject constructor(
         val tiles = mutableListOf<Tile>()
         var confSum = 0f
         for (i in 0 until slotCount) {
-            val (l, r) = slotBounds(stripWidth, slotCount, i)
+            val (l, r) = slotCropHorizontalBounds(stripWidth, slotCount, i)
             if (r - l < 4) return null
             val pair = classifySlot(i, slotCount) ?: return null
             val (tile, conf) = pair
@@ -121,7 +122,7 @@ class HandBottomRecognizer @Inject constructor(
     ): Pair<Tile, Float>? {
         val w = strip.width
         val h = strip.height
-        val (l, r) = slotBounds(w, slotCount, slotIndex)
+        val (l, r) = slotCropHorizontalBounds(w, slotCount, slotIndex)
         if (r - l < 4) return null
         val tileBmp = try {
             Bitmap.createBitmap(strip, l, 0, r - l, h)
@@ -129,16 +130,17 @@ class HandBottomRecognizer @Inject constructor(
             return null
         }
         return try {
-            val jpeg = tileBmp.toJpegBytes()
-            classifier.classify(jpeg)
+            // PNG 无损，避免 JPEG 块效应在小牌面裁切上拉低真实模型置信度
+            val png = tileBmp.toPngBytes()
+            classifier.classify(png)
         } finally {
             tileBmp.recycle()
         }
     }
 
-    private fun Bitmap.toJpegBytes(quality: Int = 88): ByteArray {
+    private fun Bitmap.toPngBytes(): ByteArray {
         val bos = ByteArrayOutputStream()
-        compress(Bitmap.CompressFormat.JPEG, quality, bos)
+        compress(Bitmap.CompressFormat.PNG, 100, bos)
         return bos.toByteArray()
     }
 
@@ -151,11 +153,26 @@ class HandBottomRecognizer @Inject constructor(
             "尚未加载牌面识别模型（TensorFlow Lite .tflite），无法从画面读出每一张手牌。" +
             "请将模型按 assets/ml/<应用>/model_manifest.json 配置放入工程（详见 README）；「设置」中的画面区域标定仅用于框选手牌/河牌等裁切区域，不能代替模型。"
 
+        /** 与 [com.majiang.counter.ui.PlayerStrings.HAND_NOT_13] 文案一致（识别层不依赖 ui 模块）。 */
+        const val HAND_INCOMPLETE_MSG =
+            "尚未识别齐本家 13 张手牌，请对准手牌区后重试。"
+
         /** 等分竖格左右像素边界（供单测校验切格覆盖整幅手牌条）。 */
         internal fun slotBounds(stripWidth: Int, slotCount: Int, index: Int): Pair<Int, Int> {
             val l = (stripWidth * index) / slotCount
             val r = (stripWidth * (index + 1)) / slotCount
             return l to r
+        }
+
+        /**
+         * 在等分格基础上左右各缩进一小段，减轻相邻牌缝被裁进当前格造成的误分。
+         */
+        internal fun slotCropHorizontalBounds(stripWidth: Int, slotCount: Int, index: Int): Pair<Int, Int> {
+            val (l0, r0) = slotBounds(stripWidth, slotCount, index)
+            val slotW = r0 - l0
+            if (slotW < 8) return l0 to r0
+            val inset = max(1, (slotW * 0.025f).toInt()).coerceAtMost((slotW - 4) / 2)
+            return (l0 + inset) to (r0 - inset)
         }
     }
 }

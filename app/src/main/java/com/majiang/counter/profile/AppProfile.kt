@@ -32,6 +32,7 @@ data class NormRect(
  * @property defaultExtraRects 扩展 ROI（键与 [VisualRoiKeys] 一致）；为 null 时用 [RoiCalibrationPack] 内建兜底。
  * @property defaultStableFrameMs 稳定帧建议值（毫秒，占位）。
  * @property visionMinClassifierConfidence 视觉分类置信度下限，低于则不写入河牌。
+ * @property handClassifierMinConfidence 本家手牌条逐张分类下限（可略低于河牌门禁，避免 13 张中偶发一张略低导致整手失败）。
  * @property visionStableFramesRequired 同一座位、同一牌连续帧数达标后才视为稳定。
  * @property hudReconcileToleranceTiles HUD 与推算牌墙剩张允许误差（张）。
  * @property hudReconcileMaxFailuresBeforeBlock 连续对账失败次数上限，达到后暂停视觉写河。
@@ -46,6 +47,7 @@ data class AppProfile(
     val defaultExtraRects: Map<String, NormRect>? = null,
     val defaultStableFrameMs: Long = 280L,
     val visionMinClassifierConfidence: Float = 0.85f,
+    val handClassifierMinConfidence: Float = 0.58f,
     val visionStableFramesRequired: Int = 2,
     val hudReconcileToleranceTiles: Int = 2,
     val hudReconcileMaxFailuresBeforeBlock: Int = 3,

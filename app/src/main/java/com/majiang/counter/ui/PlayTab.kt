@@ -1,18 +1,20 @@
 package com.majiang.counter.ui
 
+import android.util.Size
+import android.view.Surface
 import android.view.ViewGroup
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -34,6 +36,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -52,11 +55,8 @@ import kotlinx.coroutines.runBlocking
 /** 相机画面上 HUD 用高亮绿色，在复杂背景下仍易辨认。 */
 private val CameraHudGreen = Color(0xFF00FF88)
 
-/** 相机预览区高度：略增大以便同时看清画面与底部叠加层。 */
-private val CameraPreviewAreaHeight = 340.dp
-
 /**
- * 叠加在实时预览上的分析 HUD 样式：等宽粗体 + 阴影，提高对比度。
+ * 叠加在实时预览上的分析 HUD 样式：等宽粗体 + 浅色描边式阴影，避免大块黑底挡画面。
  *
  * @param fontSize - 字号。
  */
@@ -65,7 +65,11 @@ private fun cameraHudTextStyle(fontSize: androidx.compose.ui.unit.TextUnit = 13.
     fontFamily = FontFamily.Monospace,
     fontWeight = FontWeight.Bold,
     fontSize = fontSize,
-    shadow = Shadow(color = Color.Black, offset = Offset(1f, 1f), blurRadius = 4f),
+    shadow = Shadow(
+        color = Color.White.copy(alpha = 0.45f),
+        offset = Offset.Zero,
+        blurRadius = 2.5f,
+    ),
 )
 
 /**
@@ -87,6 +91,8 @@ fun PlayTab(
     val visionBlocked by vm.visionAutoRiverBlocked.collectAsStateWithLifecycle()
     val analysisMessage by vm.analysisMessage.collectAsStateWithLifecycle()
     val expectedWall by vm.reconciledExpectedWall.collectAsStateWithLifecycle()
+    val roiPack by vm.roiPack.collectAsStateWithLifecycle()
+    val analysisFrameSize by vm.analysisFrameSize.collectAsStateWithLifecycle()
 
     var previewView by remember { mutableStateOf<PreviewView?>(null) }
 
@@ -98,7 +104,19 @@ fun PlayTab(
         val future = ProcessCameraProvider.getInstance(context)
         val mainExecutor = ContextCompat.getMainExecutor(context)
         val analysisExecutor = Executors.newSingleThreadExecutor()
+        val rotation = pv.display?.rotation ?: Surface.ROTATION_0
+        val sharedResolution = ResolutionSelector.Builder()
+            .setResolutionStrategy(
+                ResolutionStrategy(
+                    Size(1280, 720),
+                    ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER,
+                ),
+            )
+            .build()
         val analysis = ImageAnalysis.Builder()
+            .setResolutionSelector(sharedResolution)
+            .setTargetRotation(rotation)
+            .setOutputImageRotationEnabled(true)
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
             .build()
@@ -109,7 +127,10 @@ fun PlayTab(
         }
         val run = Runnable {
             val provider = future.get()
-            val preview = Preview.Builder().build()
+            val preview = Preview.Builder()
+                .setResolutionSelector(sharedResolution)
+                .setTargetRotation(rotation)
+                .build()
             preview.setSurfaceProvider(pv.surfaceProvider)
             provider.unbindAll()
             provider.bindToLifecycle(
@@ -129,47 +150,69 @@ fun PlayTab(
         }
     }
 
+    val cameraHudMode = cameraActive && hasCameraPermission
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(12.dp),
+            .padding(12.dp)
+            .then(
+                if (cameraHudMode) {
+                    Modifier
+                } else {
+                    Modifier.verticalScroll(scrollState)
+                },
+            ),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text(
             PlayerStrings.FLOW_HINT,
-            style = MaterialTheme.typography.bodyMedium,
+            style = if (cameraHudMode) {
+                MaterialTheme.typography.bodySmall
+            } else {
+                MaterialTheme.typography.bodyMedium
+            },
             color = MaterialTheme.colorScheme.primary,
+            maxLines = if (cameraHudMode) 2 else Int.MAX_VALUE,
+            overflow = TextOverflow.Ellipsis,
         )
 
-        if (busy) {
-            Text(PlayerStrings.ANALYZING, style = MaterialTheme.typography.bodySmall)
-        }
-        analysisMessage?.let { msg ->
-            Text(
-                msg,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
+        if (!cameraHudMode) {
+            if (busy) {
+                Text(PlayerStrings.ANALYZING, style = MaterialTheme.typography.bodySmall)
+            }
+            analysisMessage?.let { msg ->
+                Text(
+                    msg,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
 
-        if (visionBlocked) {
-            Text(
-                PlayerStrings.VISION_RIVER_PAUSED,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
+            if (visionBlocked) {
+                Text(
+                    PlayerStrings.VISION_RIVER_PAUSED,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                Button(onClick = { vm.resumeVisionAutoRiver() }) {
+                    Text(PlayerStrings.RESUME_RIVER)
+                }
+            }
+        } else if (visionBlocked) {
             Button(onClick = { vm.resumeVisionAutoRiver() }) {
                 Text(PlayerStrings.RESUME_RIVER)
             }
         }
 
-        if (cameraActive && hasCameraPermission) {
+        if (cameraHudMode) {
             // TextureView（COMPATIBLE）与 Compose 同层叠放正常；SurfaceView 常导致「只有相机」盖住分析。
+            // 相机模式不套外层纵向滚动，用 weight 占满剩余高度，一屏内看完预览 + HUD。
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(CameraPreviewAreaHeight),
+                    .weight(1f),
             ) {
                 AndroidView(
                     factory = { ctx ->
@@ -184,6 +227,11 @@ fun PlayTab(
                     },
                     modifier = Modifier.fillMaxSize(),
                 )
+                CalibrationRoiOverlay(
+                    pack = roiPack,
+                    analysisFrameSize = analysisFrameSize,
+                    modifier = Modifier.fillMaxSize(),
+                )
                 CameraAnalysisHudOverlay(
                     state = state,
                     expectedWall = expectedWall,
@@ -191,9 +239,11 @@ fun PlayTab(
                     busy = busy,
                     analysisMessage = analysisMessage,
                     visionBlocked = visionBlocked,
+                    showRiversDingDealerWon = true,
                     modifier = Modifier
                         .align(Alignment.BottomStart)
-                        .fillMaxWidth(),
+                        .fillMaxWidth()
+                        .zIndex(10f),
                 )
             }
         } else if (!hasCameraPermission) {
@@ -204,13 +254,15 @@ fun PlayTab(
             )
         }
 
-        GameSummarySection(state, expectedWall)
-        AdviceSection(insights)
+        if (!cameraHudMode) {
+            GameSummarySection(state, expectedWall)
+            AdviceSection(insights)
+        }
     }
 }
 
 /**
- * 叠在相机预览之上的精简分析条：半透明底 + 高对比绿色字，便于「边看画面边看结论」。
+ * 叠在相机预览之上的精简分析条：无整块底，字直接叠在画面上（浅色光晕略提对比度）。
  */
 @Composable
 private fun CameraAnalysisHudOverlay(
@@ -220,17 +272,26 @@ private fun CameraAnalysisHudOverlay(
     busy: Boolean,
     analysisMessage: String?,
     visionBlocked: Boolean,
+    /** 为 true 时在 HUD 内补充河牌、定缺、庄、已胡（相机打开时下方列表不再重复展示）。 */
+    showRiversDingDealerWon: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val hudScroll = rememberScrollState()
     Column(
         modifier
-            .background(Color(0xCC000000))
             .padding(horizontal = 10.dp, vertical = 8.dp)
-            .heightIn(max = 200.dp)
+            .heightIn(max = 260.dp)
             .verticalScroll(hudScroll),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
+        if (showRiversDingDealerWon) {
+            Text(
+                PlayerStrings.HAND_RECOGNITION_HINT,
+                style = cameraHudTextStyle(10.sp).copy(color = CameraHudGreen.copy(alpha = 0.9f)),
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         if (busy) {
             Text(PlayerStrings.ANALYZING, style = cameraHudTextStyle(12.sp))
         }
@@ -266,6 +327,43 @@ private fun CameraAnalysisHudOverlay(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
+        if (showRiversDingDealerWon) {
+            val dq = state.dingQue.filterValues { it != null }
+            if (dq.isNotEmpty()) {
+                Text(
+                    "${PlayerStrings.DING_QUE}：" +
+                        dq.entries.joinToString {
+                            "${PlayerStrings.seatShort(it.key)}${PlayerStrings.dingQueLabel(it.value)}"
+                        },
+                    style = cameraHudTextStyle(10.sp),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            state.dealerSeat?.let {
+                Text(
+                    "${PlayerStrings.DEALER}：${PlayerStrings.seatShort(it)}",
+                    style = cameraHudTextStyle(10.sp),
+                )
+            }
+            if (state.wonSeats.isNotEmpty()) {
+                Text(
+                    "${PlayerStrings.WON_SEATS}：${state.wonSeats.joinToString { PlayerStrings.seatShort(it) }}",
+                    style = cameraHudTextStyle(10.sp),
+                )
+            }
+            Seat.entries.forEach { seat ->
+                val river = state.discards[seat].orEmpty()
+                if (river.isNotEmpty()) {
+                    Text(
+                        "${PlayerStrings.seatShort(seat)}：${river.joinToString(" ") { tileShortLabel(it) }}",
+                        style = cameraHudTextStyle(10.sp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
         val pair = insights
         if (pair != null) {
             val (ten, risk) = pair
@@ -295,10 +393,14 @@ private fun GameSummarySection(
     state: com.majiang.counter.domain.GameState,
     expectedWall: Int?,
 ) {
-    Text(PlayerStrings.SECTION_MY_HAND, style = MaterialTheme.typography.labelLarge)
+    val handStr =
+        if (state.myHand.isEmpty()) {
+            "（等待识别）"
+        } else {
+            state.myHand.joinToString(" ") { tileShortLabel(it) }
+        }
     Text(
-        if (state.myHand.isEmpty()) "（等待识别）"
-        else state.myHand.joinToString(" ") { tileShortLabel(it) },
+        "${PlayerStrings.SECTION_MY_HAND} $handStr",
         style = MaterialTheme.typography.bodyMedium,
     )
 
@@ -334,7 +436,6 @@ private fun GameSummarySection(
         )
     }
 
-    Text(PlayerStrings.SECTION_DISCARDS, style = MaterialTheme.typography.labelLarge)
     Seat.entries.forEach { seat ->
         val river = state.discards[seat].orEmpty()
         if (river.isNotEmpty()) {
@@ -348,7 +449,6 @@ private fun GameSummarySection(
 
 @Composable
 private fun AdviceSection(insights: Pair<com.majiang.counter.analysis.TenpaiInsight, com.majiang.counter.analysis.DiscardRiskInsight>?) {
-    Text(PlayerStrings.SECTION_ADVICE, style = MaterialTheme.typography.titleMedium)
     val pair = insights
     if (pair == null) {
         Text(PlayerStrings.NO_RESULT, style = MaterialTheme.typography.bodyMedium)

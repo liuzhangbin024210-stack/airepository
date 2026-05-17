@@ -21,6 +21,7 @@
 - **规则**：`SichuanRulesEngine`（定缺、无吃、胡/听、一炮多响 `ronSeats`、`RulesConfig.allowMultiRon` 默认 `true`）。
 - **蒸馏 / 策略 TFLite**：`PolicyFeatureV1`（81 维）+ manifest `rulesHash`；模型输出 **27** 时仅听牌学生，**81** 时额外含打出 RonAny/点杠；无 `policy-v1.tflite` 或校验失败则全走 MC；训练见 `tools/ml/README.md`（`train_policy_v1.py`）。**GitHub Actions** 工作流 **`train-policy-tflite`** 产出制品 **`policy-v1-tflite`**，步骤见 **`docs/CI-policy-v1-github.md`**。
 - **牌面分类 TFLite**：默认文件名 `tiles-v1.tflite`，与 `model_manifest.json` 中 `tileClassifierFile` 一致。本地训练见 `tools/ml/README.md` 或 Windows 脚本 `tools/ml/run_train_tiles.ps1`。**推荐用 GitHub Actions 下载制品**：步骤见 **`docs/CI-tiles-v1-github.md`**（Actions → **train-tiles-tflite** → 下载 **tiles-v1-tflite** → 解压后放入 `app/src/main/assets/ml/xuezhan_mahjong_default/`）。
+- **牌面模型可行性（必读）**：默认训练脚本在 **合成纹理** 上拟合，与真实牌桌牌面 **不是同一数据分布**；不经 **真实牌面小图（或游戏内渲染图）** 按 27 类重训，端上几乎无法可靠认牌。技术路线（裁剪 → Resize → 小 CNN / TFLite）是可行的，瓶颈在 **数据与域对齐**。请使用 `python tools/ml/train_tile_classifier_v1.py --data-dir <含 00..26 子目录的标注集>` 训练，详见 `tools/ml/README.md`。
 
 ## 规则子集（v1，与 `RulesConfig` 一致）
 

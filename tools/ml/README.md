@@ -29,13 +29,45 @@ MC 教师数据批次命名与落盘约定：**[datasets/README.md](datasets/REA
 
 ## 牌面分类（视觉写河）
 
+### 可行性说明
+
+- **小图 27 分类 + TFLite 端侧推理** 本身是成熟方案；当前仓库若仍「认不出牌」，首要原因是 **训练数据**：默认脚本只在 **合成纹理** 上收敛，与真实麻将牌面 **分布不同**，权重不能迁移到真机画面。
+- **要做成可用**：采集（或渲染）与 App 裁切 ROI 相近的牌面图块，按类放入子目录 **`00` … `26`**（与 `tile_schema_v1.TILE_ORDER_27` 下标一致：0=万1 … 26=条9），用 `--data-dir` 训练后再拷入 `assets/ml/{appId}/`。
+
+### 训练步骤
+
 1. **标签顺序**：与 Kotlin `Tile.allTypes()` 一致，见 `tools/ml/tile_schema_v1.py`（万 1–9 → 筒 1–9 → 条 1–9）。
 2. **张量契约**：输入 float32，`[1,H,W,3]` NHWC 或 `[1,3,H,W]` NCHW；输出 **27** 维 softmax（与 `TfliteTileClassifier` 一致）。
-3. **一键合成数据训练 + 导出**（占位权重，仅保证端侧可加载；**真实牌桌须换真实数据重训**）：
+3. **合成占位（仅工程联调，不能用于真桌认牌）**：
    ```bash
    pip install -r tools/ml/requirements.txt
    python tools/ml/train_tile_classifier_v1.py
    ```
-   默认写出到 `app/src/main/assets/ml/xuezhan_mahjong_default/tiles-v1.tflite`（可用 `--out` 改路径）。
-4. `model_manifest.json` 中 `tileClassifierFile` 须与文件名一致（如 `"tiles-v1.tflite"`）。未设置或加载失败时 `TfliteTileClassifier` 回退为低置信度，门禁不自动写河。
-5. **CI / 本机安装慢**：仓库提供 GitHub Actions `train-tiles-tflite`（Linux 上 pip + 训练 + 上传制品）；**逐步操作**见 **[`docs/CI-tiles-v1-github.md`](../docs/CI-tiles-v1-github.md)**。Windows 可用 `tools/ml/run_train_tiles.ps1` 创建 `.venv-tiles` 再训练。
+4. **真实牌面数据（产品路径）**：  
+   ```bash
+   python tools/ml/train_tile_classifier_v1.py --data-dir path/to/tile_crops_root --epochs 30
+   ```  
+   目录结构：`tile_crops_root/00/*.png` … `tile_crops_root/26/*.png`（每类尽量多张、含光照与轻微角度变化）。若源图按 `WAN1.png` 等命名但父目录编号不可靠，可先执行  
+   `python tools/ml/organize_tile_crops_by_filename.py --src tools/png --dst datasets/tile_crops_v1`  
+   再 `--data-dir datasets/tile_crops_v1`（与 GitHub Actions 默认路径一致，见 `datasets/tile_crops_v1/README.md`）。
+5. 默认写出到 `app/src/main/assets/ml/xuezhan_mahjong_default/tiles-v1.tflite`（可用 `--out` 改路径）。
+6. `model_manifest.json` 中 `tileClassifierFile` 须与文件名一致（如 `"tiles-v1.tflite"`）。未设置或加载失败时 `TfliteTileClassifier` 回退为低置信度，门禁不自动写河。
+7. **CI / 本机安装慢**：仓库提供 GitHub Actions `train-tiles-tflite`（Linux 上 pip + 训练 + 上传制品）；**逐步操作**见 **[`docs/CI-tiles-v1-github.md`](../docs/CI-tiles-v1-github.md)**。Windows 推荐 **`tools/ml/run_train_tiles.ps1`**（创建 `.venv-tiles`、用 `--no-cache-dir` 装 CPU 版 TF）；训练参数可追加在脚本后，例如  
+   `.\tools\ml\run_train_tiles.ps1 --data-dir F:\AI\majiang\datasets\tile_crops_v1 --epochs 30`（请先用 `organize_tile_crops_by_filename.py` 从 `tools/png` 生成该目录，见上条）。
+
+### Windows：`ModuleNotFoundError: tensorflow` 或 `Wheel ... is invalid`
+
+1. **推荐**：在项目根执行 **`install_tiles_venv.ps1`**（创建 `.venv-tiles`、升级 pip、`--no-cache-dir` 安装 `tensorflow-cpu`；指定 `-Mirror` 时会自动加 `--trusted-host`）：
+   ```powershell
+   cd F:\AI\majiang
+   .\tools\ml\install_tiles_venv.ps1
+   .\tools\ml\install_tiles_venv.ps1 -Mirror https://pypi.tuna.tsinghua.edu.cn/simple
+   .\tools\ml\install_tiles_venv.ps1 -Mirror https://mirrors.aliyun.com/pypi/simple/
+   ```
+   成功后训练：
+   ```powershell
+   .\.venv-tiles\Scripts\python.exe tools/ml/train_tile_classifier_v1.py --data-dir F:\AI\majiang\tools\png --epochs 30
+   ```
+2. **`invalid wheel` / `IncompleteRead`**：大包（约 300MB+）易断线，请 **多执行几次** 安装脚本或 `pip install`。手动安装时务必加 **`--trusted-host`**（与 `-i` 镜像主机一致，并加上 `files.pythonhosted.org`），例如：  
+   `.\.venv-tiles\Scripts\pip.exe install --no-cache-dir --retries 25 --timeout 300 -r tools/ml/requirements-tiles-cpu.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host mirrors.aliyun.com --trusted-host files.pythonhosted.org`
+3. **Python 版本**：Windows 上 TF 2.14+ 官方轮常见为 **64 位 CPython 3.10–3.12**；若为 3.13 或 32 位解释器，请换 64 位 3.10–3.12。
