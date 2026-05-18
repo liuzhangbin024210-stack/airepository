@@ -45,3 +45,12 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# Camerash 准备脚本产物（可重生成；本目录 README 可提交）
+datasets/tile_crops_camerash_v1/**/*.jpg
+datasets/tile_crops_camerash_v1/**/*.jpeg
+datasets/tile_crops_camerash_v1/**/*.png
+datasets/tile_crops_camerash_v1/**/*.JPG
+datasets/tile_crops_camerash_v1/**/*.JPEG
+datasets/tile_crops_camerash_v1/**/*.PNG
+datasets/_cache/

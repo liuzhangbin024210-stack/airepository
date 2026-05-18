@@ -5,11 +5,16 @@
 ## 构建
 
 1. 安装 [Android Studio](https://developer.android.com/studio) 与 **Android SDK**。
-2. 在项目根目录创建 `local.properties`，写入一行（路径按本机修改）：
+2. **（可选）牌面训练数据子模块**：若需从本仓直接拉取 [Camerash/mahjong-dataset](https://github.com/camerash/mahjong-dataset)（MIT），克隆后执行：
+   ```bash
+   git submodule update --init --recursive
+   ```
+   体积较大；仅写 App 不参与训练时可跳过。
+3. 在项目根目录创建 `local.properties`，写入一行（路径按本机修改）：
    ```properties
    sdk.dir=C\:\\Users\\你的用户名\\AppData\\Local\\Android\\Sdk
    ```
-3. 用 Android Studio 打开本仓库，同步 Gradle 后运行 `app`。
+4. 用 Android Studio 打开本仓库，同步 Gradle 后运行 `app`。
 
 ## 功能（当前最小可用）
 
@@ -21,7 +26,7 @@
 - **规则**：`SichuanRulesEngine`（定缺、无吃、胡/听、一炮多响 `ronSeats`、`RulesConfig.allowMultiRon` 默认 `true`）。
 - **蒸馏 / 策略 TFLite**：`PolicyFeatureV1`（81 维）+ manifest `rulesHash`；模型输出 **27** 时仅听牌学生，**81** 时额外含打出 RonAny/点杠；无 `policy-v1.tflite` 或校验失败则全走 MC；训练见 `tools/ml/README.md`（`train_policy_v1.py`）。**GitHub Actions** 工作流 **`train-policy-tflite`** 产出制品 **`policy-v1-tflite`**，步骤见 **`docs/CI-policy-v1-github.md`**。
 - **牌面分类 TFLite**：默认文件名 `tiles-v1.tflite`，与 `model_manifest.json` 中 `tileClassifierFile` 一致。本地训练见 `tools/ml/README.md` 或 Windows 脚本 `tools/ml/run_train_tiles.ps1`。**推荐用 GitHub Actions 下载制品**：步骤见 **`docs/CI-tiles-v1-github.md`**（Actions → **train-tiles-tflite** → 下载 **tiles-v1-tflite** → 解压后放入 `app/src/main/assets/ml/xuezhan_mahjong_default/`）。
-- **牌面模型可行性（必读）**：默认训练脚本在 **合成纹理** 上拟合，与真实牌桌牌面 **不是同一数据分布**；不经 **真实牌面小图（或游戏内渲染图）** 按 27 类重训，端上几乎无法可靠认牌。技术路线（裁剪 → Resize → 小 CNN / TFLite）是可行的，瓶颈在 **数据与域对齐**。请使用 `python tools/ml/train_tile_classifier_v1.py --data-dir <含 00..26 子目录的标注集>` 训练，详见 `tools/ml/README.md`。
+- **牌面模型可行性（必读）**：默认训练脚本在 **合成纹理** 上拟合，与真实牌桌牌面 **不是同一数据分布**；不经 **真实牌面小图（或游戏内渲染图）** 按 27 类重训，端上几乎无法可靠认牌。技术路线（裁剪 → Resize → 小 CNN / TFLite）是可行的，瓶颈在 **数据与域对齐**。推荐子模块 **[Camerash/mahjong-dataset](https://github.com/camerash/mahjong-dataset)**（MIT）+ `python tools/ml/prepare_camerash_tile_crops.py` 生成 `datasets/tile_crops_camerash_v1` 后，执行 `python tools/ml/train_tile_classifier_v1.py --data-dir datasets/tile_crops_camerash_v1 --epochs 30`；详见 `tools/ml/README.md`。
 
 ## 规则子集（v1，与 `RulesConfig` 一致）
 
@@ -33,7 +38,7 @@
 
 ## 文档
 
-- 修订计划：`.cursor/plans/四川麻将记牌器计划修订_541f9a42.plan.md`
+- 修订计划：`.cursor/plans/四川麻将记牌器计划修订_541f9a42.plan.md`（正文「外部参考」：**[jmjlacosta/mahjong-scorer](https://github.com/jmjlacosta/mahjong-scorer)** 仅作 CameraX / ML Kit 等工程参考，**方案 B**；牌面与策略权重仍以本仓库 `tools/ml` 与 `model_manifest.json` 为准，**不**接入上游 TFLite。）
 - **GitHub 获取牌面模型**：`docs/CI-tiles-v1-github.md`（Actions 下载 `tiles-v1.tflite`）
 - **GitHub 获取策略模型**：`docs/CI-policy-v1-github.md`（Actions 下载 `policy-v1.tflite`）
 - 画面字段映射：`docs/画面字段-GameState-映射表.md`

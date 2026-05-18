@@ -34,6 +34,34 @@ MC 教师数据批次命名与落盘约定：**[datasets/README.md](datasets/REA
 - **小图 27 分类 + TFLite 端侧推理** 本身是成熟方案；当前仓库若仍「认不出牌」，首要原因是 **训练数据**：默认脚本只在 **合成纹理** 上收敛，与真实麻将牌面 **分布不同**，权重不能迁移到真机画面。
 - **要做成可用**：采集（或渲染）与 App 裁切 ROI 相近的牌面图块，按类放入子目录 **`00` … `26`**（与 `tile_schema_v1.TILE_ORDER_27` 下标一致：0=万1 … 26=条9），用 `--data-dir` 训练后再拷入 `assets/ml/{appId}/`。
 
+### Camerash 公开数据集（子模块 + 一键准备）
+
+本仓库以 **Git 子模块** 纳入 **[Camerash/mahjong-dataset](https://github.com/camerash/mahjong-dataset)**（**MIT**），路径 **`third_party/mahjong-dataset`**。克隆后请先：
+
+```bash
+git submodule update --init --recursive
+```
+
+在项目根生成 `datasets/tile_crops_camerash_v1/00`–`26`（仅使用 CSV 中 **label 1–27** 数牌；字/花已跳过；映射见 `prepare_camerash_tile_crops.py` 文档字符串）：
+
+```bash
+python tools/ml/prepare_camerash_tile_crops.py --clear
+```
+
+若未拉子模块，可改用从 GitHub 下载 `train.zip`：
+
+```bash
+python tools/ml/prepare_camerash_tile_crops.py --download --clear
+```
+
+再训练（生成图像默认 **gitignore**，详见 `datasets/tile_crops_camerash_v1/README.md`）：
+
+```bash
+python tools/ml/train_tile_classifier_v1.py --data-dir datasets/tile_crops_camerash_v1 --epochs 30
+```
+
+**域差异**：该集多为商品图/杂牌面，与目标血战 **App 内 ROI** 分布未必一致；上线前请用 **游戏裁切图** 做微调或混合训练，并依赖端侧置信度门禁。
+
 ### 训练步骤
 
 1. **标签顺序**：与 Kotlin `Tile.allTypes()` 一致，见 `tools/ml/tile_schema_v1.py`（万 1–9 → 筒 1–9 → 条 1–9）。
@@ -53,7 +81,7 @@ MC 教师数据批次命名与落盘约定：**[datasets/README.md](datasets/REA
 5. 默认写出到 `app/src/main/assets/ml/xuezhan_mahjong_default/tiles-v1.tflite`（可用 `--out` 改路径）。
 6. `model_manifest.json` 中 `tileClassifierFile` 须与文件名一致（如 `"tiles-v1.tflite"`）。未设置或加载失败时 `TfliteTileClassifier` 回退为低置信度，门禁不自动写河。
 7. **CI / 本机安装慢**：仓库提供 GitHub Actions `train-tiles-tflite`（Linux 上 pip + 训练 + 上传制品）；**逐步操作**见 **[`docs/CI-tiles-v1-github.md`](../docs/CI-tiles-v1-github.md)**。Windows 推荐 **`tools/ml/run_train_tiles.ps1`**（创建 `.venv-tiles`、用 `--no-cache-dir` 装 CPU 版 TF）；训练参数可追加在脚本后，例如  
-   `.\tools\ml\run_train_tiles.ps1 --data-dir F:\AI\majiang\datasets\tile_crops_v1 --epochs 30`（请先用 `organize_tile_crops_by_filename.py` 从 `tools/png` 生成该目录，见上条）。
+   `.\tools\ml\run_train_tiles.ps1 --data-dir F:\AI\majiang\datasets\tile_crops_camerash_v1 --epochs 30`（Camerash 见上文「子模块 + prepare」）或 `--data-dir F:\AI\majiang\datasets\tile_crops_v1`（见上条 `organize_tile_crops_by_filename.py`）。
 
 ### Windows：`ModuleNotFoundError: tensorflow` 或 `Wheel ... is invalid`
 

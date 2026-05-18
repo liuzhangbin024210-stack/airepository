@@ -31,12 +31,20 @@ git push -u origin main
 
 ## 训练数据集（真实牌面）
 
-工作流会检查 **`datasets/tile_crops_v1`** 下是否存在 **`00` 或 `0`** 子目录：
+工作流在训练前会执行 **`tools/ml/prepare_camerash_tile_crops.py`**：优先使用子模块 **`third_party/mahjong-dataset/train.zip`**，否则 **`--download`** 拉取 [Camerash/mahjong-dataset](https://github.com/camerash/mahjong-dataset)（MIT），生成 **`datasets/tile_crops_camerash_v1/00`…`26`**。
 
-- **有**：用真实图训练（手动运行默认 **30** epoch；因 **push** 触发的 CI 用 **12** epoch 做冒烟）。
-- **无**：退回 **合成纹理** 占位模型（与真桌分布不一致，仅联调用）。
+克隆本仓库后请先（体积较大，可选）：
 
-### 准备数据（本机一次即可）
+```bash
+git submodule update --init --recursive
+```
+
+随后检查 **`datasets/tile_crops_camerash_v1`** 下是否存在 **`00` 或 `0`**：
+
+- **有**：用该目录训练（手动 **Run workflow** 默认 **30** epoch；**push** 触发用 **12** epoch 冒烟）。
+- **无**且准备失败：若存在 **`datasets/tile_crops_v1/00`**，则回退使用该手工集；否则退回 **合成纹理** 占位模型（仅联调）。
+
+### 准备数据（本机，手工集 `tile_crops_v1`）
 
 1. 将牌面小图放在任意目录，文件名须为 **`WAN1`…`WAN9`、`TONG1`…`TONG9`、`TIAO1`…`TIAO9`**（扩展名 png/jpg 等），**标签以文件名为准**（与 `Tile.allTypes()`：万→筒→条 一致）。
 2. 在项目根执行，生成标准布局 **`datasets/tile_crops_v1/00`…`26`**：
@@ -48,11 +56,13 @@ git push -u origin main
    说明见 **`datasets/tile_crops_v1/README.md`**。
 3. 将 `datasets/tile_crops_v1` **提交并推送** 到 GitHub（每类至少一张；样本多了可考虑 Git LFS）。
 
+**Camerash 一键准备**（不依赖 `tile_crops_v1` 提交）：见 **`datasets/tile_crops_camerash_v1/README.md`** 与 **`tools/ml/README.md`**。
+
 ### 手动运行参数（`Run workflow`）
 
 | 输入项 | 含义 | 默认 |
 |--------|------|------|
-| **data_dir** | 数据集根目录（其下须含 `00`…`26` 或 `0`…`26`） | `datasets/tile_crops_v1` |
+| **data_dir** | 数据集根目录（其下须含 `00`…`26` 或 `0`…`26`） | `datasets/tile_crops_camerash_v1` |
 | **epochs** | 训练轮数 | `30` |
 
 ## 操作步骤
