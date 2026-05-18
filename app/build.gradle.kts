@@ -58,6 +58,7 @@ android {
 
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.10.01")
+    implementation(project(":vision-yolo"))
     implementation(composeBom)
     androidTestImplementation(composeBom)
 
@@ -158,6 +159,7 @@ tasks.register("verifyMlManifest") {
         }
         check("policyFile", quotedValue("policyFile"))
         check("tileClassifierFile", quotedValue("tileClassifierFile"))
+        check("tileDetectorFile", quotedValue("tileDetectorFile"))
     }
 }
 

@@ -7,6 +7,7 @@ import com.majiang.counter.analysis.SituationAnalyzer
 import com.majiang.counter.analysis.TflitePolicyStudentInterpreter
 import com.majiang.counter.data.AppDatabase
 import com.majiang.counter.data.UserDao
+import com.majiang.counter.ml.readTileDetectorAssetSpec
 import com.majiang.counter.profile.AppProfile
 import com.majiang.counter.rules.RulesConfig
 import com.majiang.counter.rules.SichuanRulesEngine
@@ -18,6 +19,8 @@ import com.majiang.counter.vision.RiverDiffTableTracker
 import com.majiang.counter.vision.TableTracker
 import com.majiang.counter.vision.TfliteTileClassifier
 import com.majiang.counter.vision.TileClassifier
+import com.majiang.counter.vision.yolo.TfliteYoloTileDetector
+import com.majiang.counter.vision.yolo.TileDetector
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -69,12 +72,24 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun tileDetector(
+        @ApplicationContext context: Context,
+        appProfile: AppProfile,
+    ): TileDetector {
+        val spec = readTileDetectorAssetSpec(context, appProfile.appId)
+        return TfliteYoloTileDetector(context, spec.assetPath, spec.inputWidth, spec.inputHeight)
+    }
+
+    @Provides
+    @Singleton
     fun hudRemainingOcr(impl: MlKitHudRemainingOcr): HudRemainingOcr = impl
 
     @Provides
     @Singleton
-    fun riverDiffTableTracker(classifier: TileClassifier): RiverDiffTableTracker =
-        RiverDiffTableTracker(classifier)
+    fun riverDiffTableTracker(
+        classifier: TileClassifier,
+        tileDetector: TileDetector,
+    ): RiverDiffTableTracker = RiverDiffTableTracker(classifier, tileDetector)
 
     @Provides
     @Singleton

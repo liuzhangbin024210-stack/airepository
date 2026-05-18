@@ -29,6 +29,8 @@ MC 教师数据批次命名与落盘约定：**[datasets/README.md](datasets/REA
 
 ## 牌面分类（视觉写河）
 
+- **整桌检测（规划/骨架）**：独立模块 [`vision-yolo`](../../vision-yolo/README.md) 提供 `TileDetector` 与 `TfliteYoloTileDetector`（manifest 可选 `tileDetectorFile`）；`RiverDiffTableTracker` 在 `AppProfile.visionUseWholeTableDetector` 且模型可用时优先用检测框替代小图分类。契约见 [`docs/ml/yolo-tflite-contract.md`](../../docs/ml/yolo-tflite-contract.md)。
+
 ### 可行性说明
 
 - **小图 27 分类 + TFLite 端侧推理** 本身是成熟方案；当前仓库若仍「认不出牌」，首要原因是 **训练数据**：默认脚本只在 **合成纹理** 上收敛，与真实麻将牌面 **分布不同**，权重不能迁移到真机画面。

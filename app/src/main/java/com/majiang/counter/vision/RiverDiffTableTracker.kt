@@ -8,13 +8,15 @@ import com.majiang.counter.profile.AppProfile
 import com.majiang.counter.profile.NormRect
 import com.majiang.counter.profile.RoiCalibrationPack
 import com.majiang.counter.profile.VisualRoiKeys
+import com.majiang.counter.vision.yolo.TileDetector
+import com.majiang.counter.vision.yolo.NormalizedBBox
 import java.io.ByteArrayOutputStream
 import javax.inject.Inject
 import kotlin.math.abs
 import kotlin.math.max
 
 /**
- * 四牌河 ROI 的简化差分：灰度下采样后做 L1 变化量，超过阈值再调用 [TileClassifier]。
+ * 四牌河 ROI 的简化差分：灰度下采样后做 L1 变化量，超过阈值再调用 [TileClassifier]；若 [AppProfile.visionUseWholeTableDetector] 且 [com.majiang.counter.vision.yolo.TileDetector] 可用，则优先用整桌检测框落入河 ROI 的结果。
  *
  * **映射表落地**（`docs/画面字段-GameState-映射表.md`）：
  * - **结算类画面**：启发式检测（底部大面积「继续游戏」类暖色按钮、顶部胜利金区等）→ **不产出**弃牌事件，并清空运动历史，避免回到对局后误触发。
@@ -22,6 +24,7 @@ import kotlin.math.max
  */
 class RiverDiffTableTracker @Inject constructor(
     private val classifier: TileClassifier,
+    private val tileDetector: TileDetector,
 ) : TableTracker {
 
     private val prevRiverThumb = mutableMapOf<Seat, IntArray>()
@@ -30,7 +33,7 @@ class RiverDiffTableTracker @Inject constructor(
     override suspend fun processFrame(
         image: ImageProxy,
         roiPack: RoiCalibrationPack,
-        @Suppress("UNUSED_PARAMETER") profile: AppProfile,
+        profile: AppProfile,
     ): DiscardEvent? {
         val full = try {
             image.toBitmapArgb8888()
@@ -50,7 +53,7 @@ class RiverDiffTableTracker @Inject constructor(
     internal suspend fun processFullFrameBitmap(
         full: Bitmap,
         roiPack: RoiCalibrationPack,
-        @Suppress("UNUSED_PARAMETER") profile: AppProfile,
+        profile: AppProfile,
     ): DiscardEvent? {
         if (isLikelySettlementScreen(full)) {
             clearMotionHistory()
@@ -110,7 +113,24 @@ class RiverDiffTableTracker @Inject constructor(
         if (bestSeat == null) return null
 
         val rect = roiPack.rivers[bestSeat] ?: return null
-        val classifyCrop = cropNorm(full, rect) ?: return null
+        val rectSan = rect.sanitized()
+
+        if (profile.visionUseWholeTableDetector && tileDetector.isModelAvailable()) {
+            val dets = tileDetector.detectTiles(full)
+            val inside = dets
+                .filter { it.confidence >= profile.visionWholeTableDetectorMinConfidence }
+                .filter { bboxCenterInNormRect(it.bboxNorm, rectSan) }
+                .maxByOrNull { it.confidence }
+            if (inside != null) {
+                return DiscardEvent(
+                    seat = bestSeat,
+                    tile = inside.toDomainTile(),
+                    confidence = inside.confidence,
+                )
+            }
+        }
+
+        val classifyCrop = cropNorm(full, rectSan) ?: return null
         val jpeg = compressJpeg(classifyCrop, 72)
         classifyCrop.recycle()
         val (tile, conf) = classifier.classify(jpeg)
@@ -195,6 +215,12 @@ class RiverDiffTableTracker @Inject constructor(
     private fun clearMotionHistory() {
         prevRiverThumb.clear()
         prevCenterThumb = null
+    }
+
+    private fun bboxCenterInNormRect(bbox: NormalizedBBox, river: NormRect): Boolean {
+        val cx = (bbox.left + bbox.right) / 2f
+        val cy = (bbox.top + bbox.bottom) / 2f
+        return cx >= river.left && cx <= river.right && cy >= river.top && cy <= river.bottom
     }
 
     private fun compressJpeg(bmp: Bitmap, quality: Int): ByteArray {

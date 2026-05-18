@@ -53,6 +53,13 @@ data class AppProfile(
     val hudReconcileMaxFailuresBeforeBlock: Int = 3,
     val hudOcrMinIntervalMs: Long = 900L,
     val hudOcrStableReadsRequired: Int = 2,
+    /**
+     * 为 true 且 [com.majiang.counter.vision.yolo.TileDetector.isModelAvailable] 时，
+     * [com.majiang.counter.vision.RiverDiffTableTracker] 在差分锁定河 ROI 后优先用整桌检测框中心落入该 ROI 的牌替代小图分类。
+     */
+    val visionUseWholeTableDetector: Boolean = false,
+    /** 整桌检测置信度下限（低于则回退小图 [com.majiang.counter.vision.TileClassifier]）。 */
+    val visionWholeTableDetectorMinConfidence: Float = 0.50f,
 ) {
     companion object {
         /** 占位旧 id（兼容 Room 已有数据）。 */

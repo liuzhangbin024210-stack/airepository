@@ -10,6 +10,7 @@
 *.apk
 *.aab
 app/build
+vision-yolo/build/
 .venv-tiles/
 .venv-policy/
 .kotlin/

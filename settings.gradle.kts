@@ -18,3 +18,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "SichuanMajiangCounter"
 include(":app")
+include(":vision-yolo")

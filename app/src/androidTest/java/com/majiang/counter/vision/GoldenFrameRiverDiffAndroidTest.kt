@@ -9,6 +9,7 @@ import com.google.common.truth.Truth.assertThat
 import com.majiang.counter.domain.Tile
 import com.majiang.counter.profile.AppProfile
 import com.majiang.counter.profile.RoiCalibrationPack
+import com.majiang.counter.vision.yolo.NoOpTileDetector
 import com.majiang.counter.domain.Suit
 import kotlinx.coroutines.runBlocking
 import org.junit.Assume.assumeTrue
@@ -46,7 +47,10 @@ class GoldenFrameRiverDiffAndroidTest {
         val bmp = decodePngAsset("5.png")
         assertThat(bmp).isNotNull()
         val bitmap = requireNotNull(bmp)
-        val tracker = RiverDiffTableTracker(FixedTileClassifier())
+        val tracker = RiverDiffTableTracker(
+            FixedTileClassifier(),
+            NoOpTileDetector(),
+        )
         val roi = RoiCalibrationPack.defaultFromProfile(AppProfile.xuezhanDefault())
         val profile = AppProfile.xuezhanDefault()
         try {
@@ -65,7 +69,10 @@ class GoldenFrameRiverDiffAndroidTest {
         val bmp = decodePngAsset("2.png")
         assertThat(bmp).isNotNull()
         val bitmap = requireNotNull(bmp)
-        val tracker = RiverDiffTableTracker(FixedTileClassifier())
+        val tracker = RiverDiffTableTracker(
+            FixedTileClassifier(),
+            NoOpTileDetector(),
+        )
         val roi = RoiCalibrationPack.defaultFromProfile(AppProfile.xuezhanDefault())
         val profile = AppProfile.xuezhanDefault()
         try {
